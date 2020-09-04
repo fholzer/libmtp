@@ -342,13 +342,18 @@ fd_getfunc(PTPParams* params, void* private,
 	       unsigned long *gotlen
 ) {
 	PTPFDHandlerPrivate* priv = (PTPFDHandlerPrivate*)private;
-	int		got;
+	int		got, got_total = 0;
 
-	got = read (priv->fd, data, wantlen);
-	if (got != -1)
-		*gotlen = got;
-	else
-		return PTP_RC_GeneralError;
+	do {
+		got = read (priv->fd, data+got_total, wantlen - got_total);
+
+		if(got <= 0)
+			return PTP_RC_GeneralError;
+
+		got_total += got;
+	} while(got_total < wantlen);
+
+	*gotlen = got_total;
 	return PTP_RC_OK;
 }
 
@@ -356,12 +361,17 @@ static uint16_t
 fd_putfunc(PTPParams* params, void* private,
 	       unsigned long sendlen, unsigned char *data
 ) {
-	ssize_t		written;
+	ssize_t		written, written_total = 0;
 	PTPFDHandlerPrivate* priv = (PTPFDHandlerPrivate*)private;
 
-	written = write (priv->fd, data, sendlen);
-	if (written != sendlen)
-		return PTP_ERROR_IO;
+	do {
+		written = write (priv->fd, data + written_total, sendlen - written_total);
+		if (written <= 0)
+			return PTP_ERROR_IO;
+
+		written_total += written;
+	} while(written_total < sendlen);
+
 	return PTP_RC_OK;
 }
 
